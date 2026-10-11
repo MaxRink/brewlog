@@ -79,6 +79,22 @@ This fork is maintained at `https://github.com/MaxRink/brewlog`, based on
 container digest. Rebase this small OIDC patch onto upstream releases, run the
 full test suite, and review the migration before changing that digest.
 
+For the homelab Authelia client, register a confidential web client with issuer
+`https://auth.private-testumgebung.de` and the callback
+`https://brewlog.private-testumgebung.de/auth/oidc/callback`. Request only the
+`openid profile email` scopes. The authorization-code flow uses S256 PKCE and
+the client secret stays in the Arcane secret store. A user can sign in through
+OIDC to provision a normal Brewlog account, or sign in locally first and use
+the Admin page's explicit **Link Authelia account** action. Linking is
+session-bound and uses only the verified `(issuer, sub)` identity; email and
+name claims never select, merge, or take over an account. Brewlog has no OIDC
+role mapping, so no OIDC claim grants admin access. Passkeys remain the local
+recovery method.
+
+The reviewed fork revision is `f155555d85314412db0496eaebfc8b89d13cc6d4`.
+The corresponding image artifact must be pinned by its immutable image digest
+when imported into Arcane; do not deploy a mutable branch or tag.
+
 ### Install from Git
 
 To build and install from source, you'll need a working Rust toolchain:

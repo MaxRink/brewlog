@@ -7,7 +7,7 @@ use tower_cookies::{Cookie, Cookies};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use crate::application::auth::SESSION_COOKIE_NAME;
+use crate::application::auth::{AuthenticatedUser, SESSION_COOKIE_NAME};
 use crate::application::routes::render_html;
 use crate::application::state::{AppState, PendingOidc};
 use crate::domain::RepositoryError;
@@ -65,6 +65,25 @@ pub(crate) async fn oidc_login(
     State(state): State<AppState>,
     cookies: Cookies,
 ) -> Result<Redirect, StatusCode> {
+    start_oidc(&state, &cookies, None).await
+}
+
+/// Start an explicit, session-bound link for the currently authenticated
+/// local account. The callback can only link the identity to this user; OIDC
+/// email claims are never used to select or take over an account.
+pub(crate) async fn oidc_link(
+    State(state): State<AppState>,
+    AuthenticatedUser(user): AuthenticatedUser,
+    cookies: Cookies,
+) -> Result<Redirect, StatusCode> {
+    start_oidc(&state, &cookies, Some(user.id)).await
+}
+
+async fn start_oidc(
+    state: &AppState,
+    cookies: &Cookies,
+    link_user_id: Option<crate::domain::ids::UserId>,
+) -> Result<Redirect, StatusCode> {
     let Some(service) = &state.oidc else {
         return Err(StatusCode::NOT_FOUND);
     };
@@ -79,6 +98,7 @@ pub(crate) async fn oidc_login(
                 nonce: authorization.nonce,
                 verifier: authorization.verifier,
                 created_at: std::time::Instant::now(),
+                link_user_id,
             },
         );
     }
@@ -135,18 +155,43 @@ pub(crate) async fn oidc_callback(
             StatusCode::UNAUTHORIZED
         })?;
     let identity_key = service.identity_key(&identity.subject);
-    let user = match state
+    let linked = state
         .user_repo
         .get_by_oidc_identity(service.issuer(), &identity.subject)
-        .await
-    {
-        Ok(user) => user,
-        Err(RepositoryError::NotFound) => {
-            provision_oidc_user(&state, &identity, &identity_key).await?
+        .await;
+    let user = if let Some(target_id) = pending.link_user_id {
+        match linked {
+            Ok(existing) if existing.id == target_id => existing,
+            Ok(_) => return Err(StatusCode::CONFLICT),
+            Err(RepositoryError::NotFound) => {
+                state
+                    .user_repo
+                    .link_oidc_identity(target_id, service.issuer(), &identity.subject)
+                    .await
+                    .map_err(|err| {
+                        error!(error = %err, "failed to link OIDC identity");
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?;
+                state.user_repo.get(target_id).await.map_err(|err| {
+                    error!(error = %err, "failed to reload linked OIDC user");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?
+            }
+            Err(err) => {
+                error!(error = %err, "OIDC identity lookup failed");
+                return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            }
         }
-        Err(err) => {
-            error!(error = %err, "OIDC identity lookup failed");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    } else {
+        match linked {
+            Ok(user) => user,
+            Err(RepositoryError::NotFound) => {
+                provision_oidc_user(&state, &identity, &identity_key).await?
+            }
+            Err(err) => {
+                error!(error = %err, "OIDC identity lookup failed");
+                return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            }
         }
     };
     create_session_for_user(&state, &cookies, user.id).await?;

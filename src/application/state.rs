@@ -38,6 +38,9 @@ pub struct PendingOidc {
     pub nonce: openidconnect::Nonce,
     pub verifier: openidconnect::PkceCodeVerifier,
     pub created_at: std::time::Instant,
+    /// Set only by the authenticated account-link flow. Never derive this
+    /// target from an OIDC claim or an email address.
+    pub link_user_id: Option<crate::domain::ids::UserId>,
 }
 
 /// Configuration for external services and auth — everything that varies
