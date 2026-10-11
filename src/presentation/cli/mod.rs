@@ -173,6 +173,15 @@ pub struct ServeCommand {
 
     #[arg(long, env = "BREWLOG_FOURSQUARE_API_KEY")]
     pub foursquare_api_key: Option<String>,
+
+    #[arg(long, env = "BREWLOG_OIDC_ISSUER")]
+    pub oidc_issuer: Option<String>,
+    #[arg(long, env = "BREWLOG_OIDC_CLIENT_ID")]
+    pub oidc_client_id: Option<String>,
+    #[arg(long, env = "BREWLOG_OIDC_CLIENT_SECRET")]
+    pub oidc_client_secret: Option<String>,
+    #[arg(long, env = "BREWLOG_OIDC_REDIRECT_URL")]
+    pub oidc_redirect_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]

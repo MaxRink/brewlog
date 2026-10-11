@@ -129,6 +129,17 @@ pub trait UserRepository: Send + Sync {
     async fn get(&self, id: UserId) -> Result<User, RepositoryError>;
     async fn get_by_username(&self, username: &str) -> Result<User, RepositoryError>;
     async fn get_by_uuid(&self, uuid: &str) -> Result<User, RepositoryError>;
+    async fn get_by_oidc_identity(
+        &self,
+        issuer: &str,
+        subject: &str,
+    ) -> Result<User, RepositoryError>;
+    async fn link_oidc_identity(
+        &self,
+        user_id: UserId,
+        issuer: &str,
+        subject: &str,
+    ) -> Result<(), RepositoryError>;
     async fn exists(&self) -> Result<bool, RepositoryError>;
     async fn list_all(&self) -> Result<Vec<User>, RepositoryError>;
 }

@@ -62,6 +62,39 @@ This link expires in 1 hour.
 Open that URL, choose a display name, and register a passkey. This creates an account and
 signs in automatically.
 
+### Native OpenID Connect
+
+The MaxRink fork adds optional native OpenID Connect. Set
+`BREWLOG_OIDC_ISSUER`, `BREWLOG_OIDC_CLIENT_ID`, `BREWLOG_OIDC_REDIRECT_URL`
+(normally `https://brewlog.example/auth/oidc/callback`) and, when required by
+the provider, `BREWLOG_OIDC_CLIENT_SECRET`. The flow uses provider discovery,
+authorization code + PKCE, state and nonce validation, and signed ID-token
+validation. Identities are linked by the immutable `(issuer, subject)` pair;
+email is only a username hint and cannot take over an existing local account.
+Passkeys remain available as local recovery. Leave these variables unset to
+retain upstream-only passkey behavior.
+
+This fork is maintained at `https://github.com/MaxRink/brewlog`, based on
+`https://github.com/jnsgruk/brewlog`. The homelab pins the deployed revision by
+container digest. Rebase this small OIDC patch onto upstream releases, run the
+full test suite, and review the migration before changing that digest.
+
+For the homelab Authelia client, register a confidential web client with issuer
+`https://auth.private-testumgebung.de` and the callback
+`https://brewlog.private-testumgebung.de/auth/oidc/callback`. Request only the
+`openid profile email` scopes. The authorization-code flow uses S256 PKCE and
+the client secret stays in the Arcane secret store. A user can sign in through
+OIDC to provision a normal Brewlog account, or sign in locally first and use
+the Admin page's explicit **Link Authelia account** action. Linking is
+session-bound and uses only the verified `(issuer, sub)` identity; email and
+name claims never select, merge, or take over an account. Brewlog has no OIDC
+role mapping, so no OIDC claim grants admin access. Passkeys remain the local
+recovery method.
+
+The reviewed fork revision is `f155555d85314412db0496eaebfc8b89d13cc6d4`.
+The corresponding image artifact must be pinned by its immutable image digest
+when imported into Arcane; do not deploy a mutable branch or tag.
+
 ### Install from Git
 
 To build and install from source, you'll need a working Rust toolchain:
@@ -108,6 +141,10 @@ directory is loaded automatically via [dotenvy](https://crates.io/crates/dotenvy
 | `BREWLOG_DATABASE_URL`     | Database connection string                                             | `sqlite://brewlog.db`   |
 | `BREWLOG_BIND_ADDRESS`     | Server bind address                                                    | `127.0.0.1:3000`        |
 | `BREWLOG_INSECURE_COOKIES` | Disable the `Secure` cookie flag (auto-enabled for localhost defaults) | `false`                 |
+| `BREWLOG_OIDC_ISSUER` | OIDC issuer URL; enables native OIDC when all required OIDC settings are present | — |
+| `BREWLOG_OIDC_CLIENT_ID` | OIDC client identifier | — |
+| `BREWLOG_OIDC_CLIENT_SECRET` | OIDC client secret, if the provider requires one | — |
+| `BREWLOG_OIDC_REDIRECT_URL` | Registered callback URL (`/auth/oidc/callback`) | — |
 | `RUST_LOG`                 | Log level filter                                                       | `info`                  |
 | `RUST_LOG_FORMAT`          | Set to `json` for structured log output                                | —                       |
 

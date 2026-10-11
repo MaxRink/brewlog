@@ -14,6 +14,22 @@
     </p>
   </header>
 
+  {% if oidc_enabled %}
+    <section class="rounded-lg border bg-surface p-5">
+      <h2 class="text-lg font-semibold text-text">Authelia account</h2>
+      <p class="mt-1 text-sm text-text-secondary">
+        Link this signed-in Brewlog account to your Authelia identity. The link
+        uses the OIDC issuer and subject and never matches on email.
+      </p>
+      <a
+        href="/auth/oidc/link"
+        class="mt-4 inline-flex items-center rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-text transition hover:bg-accent-hover"
+      >
+        Link Authelia account
+      </a>
+    </section>
+  {% endif %}
+
   <!-- Passkeys -->
   <section
     data-signals:_show-passkey-form="false"

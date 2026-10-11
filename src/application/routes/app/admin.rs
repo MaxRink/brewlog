@@ -75,6 +75,7 @@ struct AdminTemplate {
     ai_usage: Option<AiUsageView>,
     passkeys: Vec<PasskeyView>,
     tokens: Vec<TokenView>,
+    oidc_enabled: bool,
 }
 
 // --- Page handler ---
@@ -158,6 +159,7 @@ pub(crate) async fn admin_page(
         ai_usage,
         passkeys,
         tokens,
+        oidc_enabled: state.oidc.is_some(),
     };
 
     render_html(template).map(IntoResponse::into_response)

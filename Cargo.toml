@@ -41,6 +41,7 @@ uuid = { version = "1", features = ["v4"] }
 webauthn-rs = { version = "0.5", features = ["conditional-ui"] }
 webauthn-rs-proto = "0.5"
 kamadak-exif = "0.6.1"
+openidconnect = { version = "4.0.1", default-features = false, features = ["reqwest", "rustls-tls"] }
 
 [features]
 e2e = []

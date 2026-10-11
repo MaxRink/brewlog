@@ -5,5 +5,6 @@ pub mod client;
 pub mod database;
 pub mod foursquare;
 pub mod image_processing;
+pub mod oidc;
 pub mod repositories;
 pub mod webauthn;

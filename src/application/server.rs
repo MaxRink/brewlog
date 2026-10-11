@@ -17,6 +17,7 @@ use crate::domain::registration_tokens::NewRegistrationToken;
 use crate::domain::repositories::{RegistrationTokenRepository, UserRepository};
 use crate::infrastructure::auth::{generate_session_token, hash_token};
 use crate::infrastructure::database::Database;
+use crate::infrastructure::oidc::{OidcConfig, OidcService};
 
 pub struct ServerConfig {
     pub bind_address: SocketAddr,
@@ -26,6 +27,7 @@ pub struct ServerConfig {
     pub insecure_cookies: bool,
     pub inference_provider: crate::infrastructure::ai::InferenceProvider,
     pub foursquare_api_key: String,
+    pub oidc: Option<OidcConfig>,
 }
 
 pub async fn serve(config: ServerConfig) -> anyhow::Result<()> {
@@ -41,6 +43,12 @@ pub async fn serve(config: ServerConfig) -> anyhow::Result<()> {
             .build()
             .context("failed to build WebAuthn instance")?,
     );
+    let oidc = match config.oidc {
+        Some(oidc_config) => Some(Arc::new(
+            OidcService::discover(oidc_config, reqwest::Client::new()).await?,
+        )),
+        None => None,
+    };
 
     let (stats_tx, stats_rx) = tokio::sync::mpsc::channel::<()>(32);
     let stats_invalidator = StatsInvalidator::new(stats_tx);
@@ -60,6 +68,7 @@ pub async fn serve(config: ServerConfig) -> anyhow::Result<()> {
             inference_provider: config.inference_provider,
             stats_invalidator: stats_invalidator.clone(),
             timeline_invalidator,
+            oidc,
         },
     );
 

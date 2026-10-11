@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use webauthn_rs::prelude::*;
@@ -14,6 +15,7 @@ use crate::domain::repositories::{
 };
 use crate::infrastructure::backup::BackupService;
 use crate::infrastructure::database::Database;
+use crate::infrastructure::oidc::OidcService;
 use crate::infrastructure::repositories::ai_usage::SqlAiUsageRepository;
 use crate::infrastructure::repositories::bags::SqlBagRepository;
 use crate::infrastructure::repositories::brews::SqlBrewRepository;
@@ -32,6 +34,15 @@ use crate::infrastructure::repositories::tokens::SqlTokenRepository;
 use crate::infrastructure::repositories::users::SqlUserRepository;
 use crate::infrastructure::webauthn::ChallengeStore;
 
+pub struct PendingOidc {
+    pub nonce: openidconnect::Nonce,
+    pub verifier: openidconnect::PkceCodeVerifier,
+    pub created_at: std::time::Instant,
+    /// Set only by the authenticated account-link flow. Never derive this
+    /// target from an OIDC claim or an email address.
+    pub link_user_id: Option<crate::domain::ids::UserId>,
+}
+
 /// Configuration for external services and auth — everything that varies
 /// between production and test environments. Repos and services are created
 /// automatically from the database pool.
@@ -43,6 +54,7 @@ pub struct AppStateConfig {
     pub inference_provider: crate::infrastructure::ai::InferenceProvider,
     pub stats_invalidator: StatsInvalidator,
     pub timeline_invalidator: TimelineInvalidator,
+    pub oidc: Option<Arc<OidcService>>,
 }
 
 #[derive(Clone)]
@@ -81,6 +93,8 @@ pub struct AppState {
     pub stats_invalidator: StatsInvalidator,
     pub timeline_invalidator: TimelineInvalidator,
     pub image_semaphore: Arc<tokio::sync::Semaphore>,
+    pub oidc: Option<Arc<OidcService>>,
+    pub oidc_pending: Arc<tokio::sync::Mutex<HashMap<String, PendingOidc>>>,
 }
 
 impl AppState {
@@ -171,6 +185,8 @@ impl AppState {
             stats_invalidator: config.stats_invalidator,
             timeline_invalidator: config.timeline_invalidator,
             image_semaphore: Arc::new(tokio::sync::Semaphore::new(4)),
+            oidc: config.oidc,
+            oidc_pending: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
         }
     }
 }
