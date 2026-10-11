@@ -61,7 +61,7 @@ pub async fn metrics() -> impl IntoResponse {
 /// user data from becoming high-cardinality labels.
 pub async fn http_metrics(request: Request<Body>, next: Next) -> Response {
     let route = normalized_route(&request);
-    let method = request.method().as_str().to_owned();
+    let method = safe_method_label(request.method().as_str());
     let started = Instant::now();
     let response = next.run(request).await;
     let status_class = format!("{}xx", response.status().as_u16() / 100);
@@ -100,6 +100,15 @@ fn safe_route_label(route: Option<&str>) -> String {
     route.map_or_else(|| "<unmatched>".to_owned(), str::to_owned)
 }
 
+fn safe_method_label(method: &str) -> String {
+    match method {
+        "GET" | "HEAD" | "POST" | "PUT" | "DELETE" | "CONNECT" | "OPTIONS" | "TRACE" | "PATCH" => {
+            method.to_owned()
+        }
+        _ => "OTHER".to_owned(),
+    }
+}
+
 /// Install an optional OTLP tracer. No exporter is created unless explicitly
 /// enabled and an endpoint is present. Spans contain route/method metadata only.
 #[cfg(feature = "otlp")]
@@ -134,9 +143,13 @@ fn env_enabled(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{HTTP_LATENCY_BUCKETS_SECONDS, env_enabled, normalized_route, safe_route_label};
+    use super::{
+        HTTP_LATENCY_BUCKETS_SECONDS, env_enabled, normalized_route, safe_method_label,
+        safe_route_label,
+    };
     use axum::body::Body;
     use axum::http::Request;
+    use metrics::{histogram, with_local_recorder};
 
     #[test]
     fn metrics_are_opt_in() {
@@ -153,6 +166,41 @@ mod tests {
         *request.uri_mut() = "/bags/secret-user-id?note=private".parse().unwrap();
         assert_eq!(normalized_route(&request), "<unmatched>");
         assert_eq!(safe_route_label(Some("/bags/{id}")), "/bags/{id}");
+    }
+
+    #[test]
+    fn custom_methods_use_bounded_label() {
+        assert_eq!(safe_method_label("GET"), "GET");
+        assert_eq!(safe_method_label("X-Private-Method"), "OTHER");
+    }
+
+    #[test]
+    fn rendered_histogram_contains_cumulative_buckets_and_no_private_url() {
+        let recorder = PrometheusBuilder::new()
+            .set_buckets_for_metric(
+                Matcher::Full("brewlog_http_request_duration_seconds".to_owned()),
+                HTTP_LATENCY_BUCKETS_SECONDS,
+            )
+            .expect("bucket configuration")
+            .build_recorder();
+        with_local_recorder(&recorder, || {
+            histogram!(
+                "brewlog_http_request_duration_seconds",
+                "route" => "/bags/{id}",
+                "method" => "GET",
+                "status_class" => "2xx"
+            )
+            .record(0.025);
+        });
+        let rendered = recorder.handle().render();
+        assert!(rendered.contains("brewlog_http_request_duration_seconds_bucket"));
+        assert!(rendered.contains("le=\"0.025\""));
+        assert!(rendered.contains("le=\"+Inf\""));
+        assert!(rendered.contains("brewlog_http_request_duration_seconds_sum"));
+        assert!(rendered.contains("brewlog_http_request_duration_seconds_count"));
+        assert!(rendered.contains("route=\"/bags/{id}\""));
+        assert!(!rendered.contains("secret-user-id"));
+        assert!(!rendered.contains("note=private"));
     }
 
     #[test]
