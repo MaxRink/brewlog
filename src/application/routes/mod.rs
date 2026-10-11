@@ -14,6 +14,7 @@ use tower_cookies::CookieManagerLayer;
 use tower_http::compression::CompressionLayer;
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::{DefaultOnResponse, TraceLayer};
+use tracing::Level;
 use tracing::error;
 
 use crate::application::state::AppState;
