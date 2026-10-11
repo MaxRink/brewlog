@@ -147,6 +147,16 @@ directory is loaded automatically via [dotenvy](https://crates.io/crates/dotenvy
 | `BREWLOG_OIDC_REDIRECT_URL` | Registered callback URL (`/auth/oidc/callback`) | — |
 | `RUST_LOG`                 | Log level filter                                                       | `info`                  |
 | `RUST_LOG_FORMAT`          | Set to `json` for structured log output                                | —                       |
+| `BREWLOG_METRICS_ENABLED`  | Set to `true` to expose bounded Prometheus metrics at `/metrics`       | `false`                 |
+| `BREWLOG_OTEL_ENABLED`     | Set to `true` with the `otlp` build feature to export bounded spans    | `false`                 |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP gRPC collector endpoint when OTLP is enabled                  | —                       |
+
+When metrics are enabled, request counters and duration histograms use only
+route templates, HTTP methods and status classes. Request bodies, query
+strings, cookies, images, tasting notes and user identifiers are excluded.
+The optional `otlp` build feature adds OTLP gRPC spans for the same bounded
+request metadata; the exporter is disabled unless both
+`BREWLOG_OTEL_ENABLED` and `OTEL_EXPORTER_OTLP_ENDPOINT` are set.
 
 ### CLI Client
 

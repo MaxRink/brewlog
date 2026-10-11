@@ -17,6 +17,7 @@ async fn main() -> Result<()> {
     let _ = dotenvy::dotenv();
 
     init_tracing();
+    brewlog::observability::init_metrics();
 
     let cli = Cli::parse();
 
@@ -171,6 +172,21 @@ fn init_tracing() {
     let use_json = std::env::var("RUST_LOG_FORMAT").is_ok_and(|v| v.eq_ignore_ascii_case("json"));
 
     let registry = tracing_subscriber::registry().with(env_filter);
+
+    #[cfg(feature = "otlp")]
+    if let Some(tracer) = brewlog::observability::init_otlp_tracing() {
+        let registry = registry.with(tracing_opentelemetry::layer().with_tracer(tracer));
+        if use_json {
+            registry
+                .with(tracing_subscriber::fmt::layer().json())
+                .init();
+        } else {
+            registry
+                .with(tracing_subscriber::fmt::layer().compact())
+                .init();
+        }
+        return;
+    }
 
     if use_json {
         registry
