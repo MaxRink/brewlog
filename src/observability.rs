@@ -15,6 +15,9 @@ use metrics::{counter, histogram};
 use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use tracing::Span;
 
+#[cfg(feature = "otlp")]
+use opentelemetry::KeyValue;
+
 static PROMETHEUS_HANDLE: OnceLock<PrometheusHandle> = OnceLock::new();
 
 #[cfg(feature = "otlp")]
@@ -95,6 +98,10 @@ pub fn init_otlp_tracing() -> Option<opentelemetry_sdk::trace::Tracer> {
         .build()
         .ok()?;
     let provider = opentelemetry_sdk::trace::TracerProvider::builder()
+        .with_resource(opentelemetry_sdk::Resource::new([KeyValue::new(
+            "service.name",
+            std::env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "brewlog".to_owned()),
+        )]))
         .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
         .build();
     let tracer = opentelemetry::trace::TracerProvider::tracer(&provider, "brewlog");
