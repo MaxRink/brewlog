@@ -12,13 +12,21 @@ use axum::http::Request;
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use metrics::{counter, histogram};
-use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
+use metrics_exporter_prometheus::{Matcher, PrometheusBuilder, PrometheusHandle};
 use tracing::Span;
 
 #[cfg(feature = "otlp")]
 use opentelemetry::KeyValue;
 
 static PROMETHEUS_HANDLE: OnceLock<PrometheusHandle> = OnceLock::new();
+
+// Keep request latency useful for both fast page/API requests and the slower
+// optional vision workflow. These bounded buckets contain no request data and
+// avoid the exporter default summary, which cannot produce Prometheus p50/p95
+// or heatmap queries.
+const HTTP_LATENCY_BUCKETS_SECONDS: &[f64] = &[
+    0.001, 0.002, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0,
+];
 
 #[cfg(feature = "otlp")]
 static OTEL_PROVIDER: OnceLock<opentelemetry_sdk::trace::TracerProvider> = OnceLock::new();
@@ -29,7 +37,13 @@ pub fn init_metrics() -> bool {
         return false;
     }
 
-    let handle = PrometheusBuilder::new()
+    let builder = PrometheusBuilder::new()
+        .set_buckets_for_metric(
+            Matcher::Full("brewlog_http_request_duration_seconds".to_owned()),
+            HTTP_LATENCY_BUCKETS_SECONDS,
+        )
+        .expect("failed to configure HTTP latency buckets");
+    let handle = builder
         .install_recorder()
         .expect("failed to install Prometheus recorder");
     let _ = PROMETHEUS_HANDLE.set(handle);
@@ -120,7 +134,7 @@ fn env_enabled(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{env_enabled, normalized_route, safe_route_label};
+    use super::{HTTP_LATENCY_BUCKETS_SECONDS, env_enabled, normalized_route, safe_route_label};
     use axum::body::Body;
     use axum::http::Request;
 
@@ -139,5 +153,17 @@ mod tests {
         *request.uri_mut() = "/bags/secret-user-id?note=private".parse().unwrap();
         assert_eq!(normalized_route(&request), "<unmatched>");
         assert_eq!(safe_route_label(Some("/bags/{id}")), "/bags/{id}");
+    }
+
+    #[test]
+    fn latency_buckets_are_bounded_and_ordered() {
+        assert_eq!(HTTP_LATENCY_BUCKETS_SECONDS.len(), 15);
+        assert!(
+            HTTP_LATENCY_BUCKETS_SECONDS
+                .windows(2)
+                .all(|pair| pair[0] < pair[1])
+        );
+        assert_eq!(HTTP_LATENCY_BUCKETS_SECONDS[0], 0.001);
+        assert_eq!(HTTP_LATENCY_BUCKETS_SECONDS[14], 60.0);
     }
 }
