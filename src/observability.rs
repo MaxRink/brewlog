@@ -150,6 +150,7 @@ mod tests {
     use axum::body::Body;
     use axum::http::Request;
     use metrics::{histogram, with_local_recorder};
+    use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
 
     #[test]
     fn metrics_are_opt_in() {
@@ -194,10 +195,29 @@ mod tests {
         });
         let rendered = recorder.handle().render();
         assert!(rendered.contains("brewlog_http_request_duration_seconds_bucket"));
-        assert!(rendered.contains("le=\"0.025\""));
-        assert!(rendered.contains("le=\"+Inf\""));
-        assert!(rendered.contains("brewlog_http_request_duration_seconds_sum"));
-        assert!(rendered.contains("brewlog_http_request_duration_seconds_count"));
+        let lines: Vec<_> = rendered.lines().collect();
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("le=\"0.001\"") && line.ends_with(" 0"))
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("le=\"0.025\"") && line.ends_with(" 1"))
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("le=\"+Inf\"") && line.ends_with(" 1"))
+        );
+        assert!(lines.iter().any(|line| {
+            line.starts_with("brewlog_http_request_duration_seconds_sum")
+                && line.ends_with(" 0.025")
+        }));
+        assert!(lines.iter().any(|line| {
+            line.starts_with("brewlog_http_request_duration_seconds_count") && line.ends_with(" 1")
+        }));
         assert!(rendered.contains("route=\"/bags/{id}\""));
         assert!(!rendered.contains("secret-user-id"));
         assert!(!rendered.contains("note=private"));
