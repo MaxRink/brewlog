@@ -160,7 +160,7 @@ directory is loaded automatically via [dotenvy](https://crates.io/crates/dotenvy
 | Variable                     | Purpose                                                                     | Default       |
 | ----------------------------- | ---------------------------------------------------------------------------- | ------------- |
 | `BREWLOG_INFERENCE_PROVIDER`  | AI inference backend: `openrouter` or `openai-compatible`                    | `openrouter`  |
-| `BREWLOG_FOURSQUARE_API_KEY`  | [Foursquare](https://foursquare.com/) Places API key for nearby cafe search  | **required**  |
+| `BREWLOG_FOURSQUARE_API_KEY`  | [Foursquare](https://foursquare.com/) Places API key for optional nearby cafe search  | optional  |
 
 #### `openrouter` provider (default)
 

@@ -2,7 +2,23 @@ use brewlog::domain::nearby_cafes::NearbyCafeResult;
 use wiremock::matchers::{header, method, path, query_param};
 use wiremock::{Mock, ResponseTemplate};
 
-use crate::helpers::spawn_app_with_foursquare_mock;
+use crate::helpers::{spawn_app_with_foursquare_mock, spawn_app_without_foursquare};
+
+#[tokio::test]
+async fn nearby_search_reports_optional_feature_disabled_without_key() {
+    let app = spawn_app_without_foursquare().await;
+    let response = reqwest::Client::new()
+        .get(app.api_url("/nearby-cafes"))
+        .bearer_auth(app.auth_token.as_ref().unwrap())
+        .query(&[("lat", "51.5"), ("lng", "-0.1"), ("q", "coffee")])
+        .send()
+        .await
+        .expect("Failed to execute request");
+
+    assert_eq!(response.status(), 400);
+    let body = response.text().await.expect("Failed to read response");
+    assert!(body.contains("Nearby cafe search is disabled"));
+}
 
 /// Deliberately unsorted Foursquare results near London (51.5, -0.1).
 fn foursquare_results() -> serde_json::Value {
