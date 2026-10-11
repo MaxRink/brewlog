@@ -15,9 +15,6 @@ use metrics::{counter, histogram};
 use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use tracing::Span;
 
-#[cfg(feature = "otlp")]
-use opentelemetry_otlp::WithExportConfig;
-
 static PROMETHEUS_HANDLE: OnceLock<PrometheusHandle> = OnceLock::new();
 
 #[cfg(feature = "otlp")]
@@ -74,10 +71,16 @@ pub fn request_span(request: &Request<Body>) -> Span {
 }
 
 fn normalized_route(request: &Request<Body>) -> String {
-    request
-        .extensions()
-        .get::<MatchedPath>()
-        .map_or_else(|| "<unmatched>".to_owned(), |path| path.as_str().to_owned())
+    safe_route_label(
+        request
+            .extensions()
+            .get::<MatchedPath>()
+            .map(MatchedPath::as_str),
+    )
+}
+
+fn safe_route_label(route: Option<&str>) -> String {
+    route.map_or_else(|| "<unmatched>".to_owned(), str::to_owned)
 }
 
 /// Install an optional OTLP tracer. No exporter is created unless explicitly
@@ -87,11 +90,9 @@ pub fn init_otlp_tracing() -> Option<opentelemetry_sdk::trace::Tracer> {
     if !env_enabled("BREWLOG_OTEL_ENABLED") {
         return None;
     }
-    let endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok()?;
-    let exporter = opentelemetry_otlp::new_exporter()
-        .tonic()
-        .with_endpoint(endpoint)
-        .build_span_exporter()
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .build()
         .ok()?;
     let provider = opentelemetry_sdk::trace::TracerProvider::builder()
         .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
@@ -112,9 +113,8 @@ fn env_enabled(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{env_enabled, normalized_route};
+    use super::{env_enabled, normalized_route, safe_route_label};
     use axum::body::Body;
-    use axum::extract::MatchedPath;
     use axum::http::Request;
 
     #[test]
@@ -131,7 +131,6 @@ mod tests {
         let mut request = Request::new(Body::empty());
         *request.uri_mut() = "/bags/secret-user-id?note=private".parse().unwrap();
         assert_eq!(normalized_route(&request), "<unmatched>");
-        request.extensions_mut().insert(MatchedPath::new("/bags/{id}"));
-        assert_eq!(normalized_route(&request), "/bags/{id}");
+        assert_eq!(safe_route_label(Some("/bags/{id}")), "/bags/{id}");
     }
 }
