@@ -30,9 +30,10 @@ RUN mkdir -p /usr/local/bin \
 WORKDIR /app
 COPY . .
 
+ARG CARGO_FEATURES=otlp
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
-    cargo build --release --locked \
+    cargo build --release --locked --features "${CARGO_FEATURES}" \
     && mkdir -p /out \
     && cp target/release/brewlog /out/brewlog
 
