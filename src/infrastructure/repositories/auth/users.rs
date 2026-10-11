@@ -80,6 +80,45 @@ impl UserRepository for SqlUserRepository {
         Ok(record.into())
     }
 
+    async fn get_by_oidc_identity(
+        &self,
+        issuer: &str,
+        subject: &str,
+    ) -> Result<User, RepositoryError> {
+        let query = "SELECT u.id, u.username, u.uuid, u.created_at FROM users u JOIN oidc_identities i ON i.user_id = u.id WHERE i.issuer = ? AND i.subject = ?";
+        let record = query_as::<_, UserRecord>(query)
+            .bind(issuer)
+            .bind(subject)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|err| RepositoryError::unexpected(err.to_string()))?
+            .ok_or(RepositoryError::NotFound)?;
+        Ok(record.into())
+    }
+
+    async fn link_oidc_identity(
+        &self,
+        user_id: UserId,
+        issuer: &str,
+        subject: &str,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query("INSERT INTO oidc_identities (user_id, issuer, subject) VALUES (?, ?, ?)")
+            .bind(i64::from(user_id))
+            .bind(issuer)
+            .bind(subject)
+            .execute(&self.pool)
+            .await
+            .map_err(|err| {
+                if let sqlx::Error::Database(db_err) = &err
+                    && db_err.is_unique_violation()
+                {
+                    return RepositoryError::conflict("OIDC identity is already linked");
+                }
+                RepositoryError::unexpected(err.to_string())
+            })?;
+        Ok(())
+    }
+
     async fn exists(&self) -> Result<bool, RepositoryError> {
         let query = "SELECT COUNT(*) FROM users";
 

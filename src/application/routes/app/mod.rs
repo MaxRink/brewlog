@@ -24,6 +24,8 @@ pub(super) fn router() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/", get(home::home_page))
         .route("/login", get(auth::login_page))
+        .route("/auth/oidc/login", get(auth::oidc_login))
+        .route("/auth/oidc/callback", get(auth::oidc_callback))
         .route("/logout", post(auth::logout))
         .route("/admin", get(admin::admin_page))
         .route("/register/{token}", get(webauthn::register_page))

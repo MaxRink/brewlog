@@ -644,7 +644,11 @@ fn validate_cli_callback_url(url_str: &str) -> Result<(), ()> {
     }
 }
 
-async fn create_session(state: &AppState, cookies: &Cookies, user_id: crate::domain::ids::UserId) {
+pub(crate) async fn create_session(
+    state: &AppState,
+    cookies: &Cookies,
+    user_id: crate::domain::ids::UserId,
+) {
     let session_token = generate_session_token();
     let session_token_hash = hash_token(&session_token);
 

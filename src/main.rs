@@ -3,6 +3,7 @@ use brewlog::application::{ServerConfig, serve};
 use brewlog::infrastructure::ai::InferenceProvider;
 use brewlog::infrastructure::backup::BackupData;
 use brewlog::infrastructure::client::BrewlogClient;
+use brewlog::infrastructure::oidc::OidcConfig;
 use brewlog::presentation::cli::{
     Cli, Commands, InferenceProviderKind, ServeCommand, bags, brews, cafes, cups, gear, roasters,
     roasts, timeline, tokens,
@@ -140,6 +141,24 @@ async fn run_server(command: ServeCommand) -> Result<()> {
         insecure_cookies,
         inference_provider,
         foursquare_api_key,
+        oidc: match (
+            command.oidc_issuer,
+            command.oidc_client_id,
+            command.oidc_redirect_url,
+        ) {
+            (Some(issuer_url), Some(client_id), Some(redirect_url)) => Some(OidcConfig {
+                issuer_url,
+                client_id,
+                client_secret: command.oidc_client_secret,
+                redirect_url,
+            }),
+            (None, None, None) => None,
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "OIDC issuer, client ID and redirect URL must be configured together"
+                ));
+            }
+        },
     };
 
     serve(config).await
