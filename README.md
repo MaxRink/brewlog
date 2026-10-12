@@ -91,6 +91,12 @@ name claims never select, merge, or take over an account. Brewlog has no OIDC
 role mapping, so no OIDC claim grants admin access. Passkeys remain the local
 recovery method.
 
+To require OIDC for new accounts, set `BREWLOG_OIDC_ONLY=true`. Brewlog refuses
+to start in this mode unless the issuer, client ID, and redirect URL above are
+all configured. OIDC-only mode disables the native registration page and API;
+passkey sign-in and passkey management remain available for existing accounts
+as a local recovery path. This setting does not grant an OIDC user admin access.
+
 The reviewed fork revision is `f155555d85314412db0496eaebfc8b89d13cc6d4`.
 The corresponding image artifact must be pinned by its immutable image digest
 when imported into Arcane; do not deploy a mutable branch or tag.
@@ -145,6 +151,7 @@ directory is loaded automatically via [dotenvy](https://crates.io/crates/dotenvy
 | `BREWLOG_OIDC_CLIENT_ID` | OIDC client identifier | — |
 | `BREWLOG_OIDC_CLIENT_SECRET` | OIDC client secret, if the provider requires one | — |
 | `BREWLOG_OIDC_REDIRECT_URL` | Registered callback URL (`/auth/oidc/callback`) | — |
+| `BREWLOG_OIDC_ONLY` | Disable native account registration; requires complete OIDC configuration | `false` |
 | `RUST_LOG`                 | Log level filter                                                       | `info`                  |
 | `RUST_LOG_FORMAT`          | Set to `json` for structured log output                                | —                       |
 | `BREWLOG_METRICS_ENABLED`  | Set to `true` to expose bounded Prometheus metrics at `/metrics`       | `false`                 |

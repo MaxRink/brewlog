@@ -31,7 +31,21 @@ pub struct ServerConfig {
     pub oidc: Option<OidcConfig>,
 }
 
+/// OIDC-only mode must have a provider configured before the server starts.
+pub fn validate_oidc_only(oidc_only: bool, oidc_configured: bool) -> anyhow::Result<()> {
+    if oidc_only && !oidc_configured {
+        anyhow::bail!(
+            "BREWLOG_OIDC_ONLY requires BREWLOG_OIDC_ISSUER, BREWLOG_OIDC_CLIENT_ID, "
+                "and BREWLOG_OIDC_REDIRECT_URL"
+        );
+    }
+
+    Ok(())
+}
+
 pub async fn serve(config: ServerConfig) -> anyhow::Result<()> {
+    validate_oidc_only(config.oidc_only, config.oidc.is_some())?;
+
     let database = Database::connect(&config.database_url)
         .await
         .context("failed to connect to database")?;
@@ -141,6 +155,23 @@ pub async fn serve(config: ServerConfig) -> anyhow::Result<()> {
     info!("server shutdown complete");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_oidc_only;
+
+    #[test]
+    fn oidc_only_requires_provider_configuration() {
+        let error = validate_oidc_only(true, false).expect_err("missing OIDC must fail");
+        assert!(error.to_string().contains("BREWLOG_OIDC_ONLY"));
+    }
+
+    #[test]
+    fn configured_oidc_only_mode_is_valid() {
+        validate_oidc_only(true, true).expect("configured OIDC-only mode must start");
+        validate_oidc_only(false, false).expect("native-only mode does not need OIDC");
+    }
 }
 
 async fn bootstrap_registration(
