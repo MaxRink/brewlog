@@ -17,6 +17,8 @@ use tracing::Span;
 
 #[cfg(feature = "otlp")]
 use opentelemetry::KeyValue;
+#[cfg(feature = "otlp")]
+use opentelemetry_otlp::WithExportConfig;
 
 static PROMETHEUS_HANDLE: OnceLock<PrometheusHandle> = OnceLock::new();
 
@@ -80,9 +82,10 @@ pub async fn http_metrics(request: Request<Body>, next: Next) -> Response {
 /// Build a content-free request span for the Axum HTTP trace layer.
 pub fn request_span(request: &Request<Body>) -> Span {
     let route = normalized_route(request);
+    let method = safe_method_label(request.method().as_str());
     tracing::info_span!(
         "http.request",
-        http.method = %request.method(),
+        http.method = %method,
         http.route = %route,
     )
 }
@@ -112,14 +115,16 @@ fn safe_method_label(method: &str) -> String {
 /// Install an optional OTLP tracer. No exporter is created unless explicitly
 /// enabled and an endpoint is present. Spans contain route/method metadata only.
 #[cfg(feature = "otlp")]
-pub fn init_otlp_tracing() -> Option<opentelemetry_sdk::trace::Tracer> {
+pub fn init_otlp_tracing() -> Result<Option<opentelemetry_sdk::trace::Tracer>, String> {
     if !env_enabled("BREWLOG_OTEL_ENABLED") {
-        return None;
+        return Ok(None);
     }
+    let endpoint = configured_otlp_endpoint(std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok())?;
     let exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
+        .with_endpoint(endpoint)
         .build()
-        .ok()?;
+        .map_err(|error| format!("failed to initialize OTLP exporter: {error}"))?;
     let provider = opentelemetry_sdk::trace::TracerProvider::builder()
         .with_resource(opentelemetry_sdk::Resource::new([KeyValue::new(
             "service.name",
@@ -129,7 +134,14 @@ pub fn init_otlp_tracing() -> Option<opentelemetry_sdk::trace::Tracer> {
         .build();
     let tracer = opentelemetry::trace::TracerProvider::tracer(&provider, "brewlog");
     let _ = OTEL_PROVIDER.set(provider);
-    Some(tracer)
+    Ok(Some(tracer))
+}
+
+#[cfg(feature = "otlp")]
+fn configured_otlp_endpoint(value: Option<String>) -> Result<String, String> {
+    value
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "OTEL_EXPORTER_OTLP_ENDPOINT is required when OTLP is enabled".to_owned())
 }
 
 fn env_enabled(name: &str) -> bool {
@@ -151,6 +163,17 @@ mod tests {
     use axum::http::Request;
     use metrics::{histogram, with_local_recorder};
     use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
+
+    #[cfg(feature = "otlp")]
+    #[test]
+    fn otlp_requires_an_explicit_endpoint() {
+        assert!(super::configured_otlp_endpoint(None).is_err());
+        assert!(super::configured_otlp_endpoint(Some("   ".to_owned())).is_err());
+        assert_eq!(
+            super::configured_otlp_endpoint(Some("http://tempo:4317".to_owned())).unwrap(),
+            "http://tempo:4317"
+        );
+    }
 
     #[test]
     fn metrics_are_opt_in() {

@@ -9,14 +9,14 @@ use brewlog::presentation::cli::{
     roasts, timeline, tokens,
 };
 use clap::Parser;
-use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Load .env file if present (before clap parses env vars)
     let _ = dotenvy::dotenv();
 
-    init_tracing();
+    init_tracing()?;
     brewlog::observability::init_metrics();
 
     let cli = Cli::parse();
@@ -163,7 +163,7 @@ async fn run_server(command: ServeCommand) -> Result<()> {
 }
 
 #[allow(clippy::expect_used)] // Startup: panicking is appropriate if logging cannot be initialized
-fn init_tracing() {
+fn init_tracing() -> Result<()> {
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     let use_json = std::env::var("RUST_LOG_FORMAT").is_ok_and(|v| v.eq_ignore_ascii_case("json"));
@@ -171,8 +171,16 @@ fn init_tracing() {
     let registry = tracing_subscriber::registry().with(env_filter);
 
     #[cfg(feature = "otlp")]
-    if let Some(tracer) = brewlog::observability::init_otlp_tracing() {
-        let registry = registry.with(tracing_opentelemetry::layer().with_tracer(tracer));
+    if let Some(tracer) =
+        brewlog::observability::init_otlp_tracing().map_err(|error| anyhow::anyhow!(error))?
+    {
+        let registry = registry.with(
+            tracing_opentelemetry::layer()
+                .with_tracer(tracer)
+                .with_filter(tracing_subscriber::filter::FilterFn::new(|metadata| {
+                    metadata.name() == "http.request"
+                })),
+        );
         if use_json {
             registry
                 .with(tracing_subscriber::fmt::layer().json())
@@ -182,7 +190,7 @@ fn init_tracing() {
                 .with(tracing_subscriber::fmt::layer().compact())
                 .init();
         }
-        return;
+        return Ok(());
     }
 
     if use_json {
@@ -194,4 +202,5 @@ fn init_tracing() {
             .with(tracing_subscriber::fmt::layer().compact())
             .init();
     }
+    Ok(())
 }
