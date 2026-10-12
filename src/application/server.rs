@@ -25,6 +25,7 @@ pub struct ServerConfig {
     pub rp_id: String,
     pub rp_origin: String,
     pub insecure_cookies: bool,
+    pub oidc_only: bool,
     pub inference_provider: crate::infrastructure::ai::InferenceProvider,
     pub foursquare_api_key: String,
     pub oidc: Option<OidcConfig>,
@@ -63,6 +64,7 @@ pub async fn serve(config: ServerConfig) -> anyhow::Result<()> {
         AppStateConfig {
             webauthn,
             insecure_cookies: config.insecure_cookies,
+            oidc_only: config.oidc_only,
             foursquare_url: crate::infrastructure::foursquare::FOURSQUARE_SEARCH_URL.to_string(),
             foursquare_api_key: config.foursquare_api_key,
             inference_provider: config.inference_provider,
@@ -105,13 +107,19 @@ pub async fn serve(config: ServerConfig) -> anyhow::Result<()> {
         tracing::warn!(error = %err, "failed to clean up expired sessions on startup");
     }
 
-    // Bootstrap: if no users exist, generate a one-time registration token
-    bootstrap_registration(
-        &state.registration_token_repo,
-        &state.user_repo,
-        &config.rp_origin,
-    )
-    .await?;
+    // OIDC-only deployments provision accounts through the identity provider;
+    // keep the native passkey recovery path for existing accounts but do not
+    // create a public bootstrap registration token.
+    if !config.oidc_only {
+        bootstrap_registration(
+            &state.registration_token_repo,
+            &state.user_repo,
+            &config.rp_origin,
+        )
+        .await?;
+    } else {
+        tracing::info!("OIDC-only mode enabled; native registration bootstrap is disabled");
+    }
 
     let listener = TcpListener::bind(config.bind_address)
         .await

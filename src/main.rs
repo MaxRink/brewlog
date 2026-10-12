@@ -139,6 +139,7 @@ async fn run_server(command: ServeCommand) -> Result<()> {
         rp_id,
         rp_origin,
         insecure_cookies,
+        oidc_only: command.oidc_only,
         inference_provider,
         foursquare_api_key,
         oidc: match (

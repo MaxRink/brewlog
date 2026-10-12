@@ -27,7 +27,7 @@ pub fn app_router(state: AppState) -> axum::Router {
     axum::Router::new()
         .merge(app::router())
         .nest("/api/v1", api::router())
-        .nest("/api/v1/webauthn", api::webauthn_router())
+        .nest("/api/v1/webauthn", api::webauthn_router(state.oidc_only))
         .layer(
             ServiceBuilder::new()
                 .layer(

@@ -114,10 +114,8 @@ pub(super) fn router() -> axum::Router<AppState> {
         .route("/{entity_type}/{id}/thumbnail", get(images::get_thumbnail))
 }
 
-pub(super) fn webauthn_router() -> axum::Router<AppState> {
-    axum::Router::new()
-        .route("/register/start", post(webauthn::register_start))
-        .route("/register/finish", post(webauthn::register_finish))
+pub(super) fn webauthn_router(oidc_only: bool) -> axum::Router<AppState> {
+    let mut router = axum::Router::new()
         .route("/auth/start", get(webauthn::auth_start))
         .route("/auth/finish", post(webauthn::auth_finish))
         .route("/passkey/start", post(webauthn::passkey_add_start))
@@ -129,5 +127,13 @@ pub(super) fn webauthn_router() -> axum::Router<AppState> {
         .route(
             "/auth/discoverable/finish",
             post(webauthn::discoverable_auth_finish),
-        )
+        );
+
+    if !oidc_only {
+        router = router
+            .route("/register/start", post(webauthn::register_start))
+            .route("/register/finish", post(webauthn::register_finish));
+    }
+
+    router
 }
