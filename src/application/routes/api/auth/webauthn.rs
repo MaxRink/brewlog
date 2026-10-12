@@ -70,6 +70,10 @@ pub(crate) async fn register_start(
     State(state): State<AppState>,
     Json(payload): Json<RegisterStartRequest>,
 ) -> Result<Json<ChallengeResponse<CreationChallengeResponse>>, StatusCode> {
+    if state.oidc_only {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
     // Validate registration token
     let token_hash = hash_token(&payload.token);
     let reg_token = state
@@ -148,6 +152,10 @@ pub(crate) async fn register_finish(
     cookies: Cookies,
     Json(payload): Json<RegisterFinishRequest>,
 ) -> Result<Json<AuthFinishResponse>, StatusCode> {
+    if state.oidc_only {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
     // Retrieve ceremony state
     let (user_id, reg_state) = state
         .challenge_store

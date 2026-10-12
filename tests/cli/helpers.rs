@@ -92,6 +92,7 @@ fn ensure_server_started() -> Result<(String, String), String> {
                     AppStateConfig {
                         webauthn: test_webauthn(),
                         insecure_cookies: true,
+                        oidc_only: false,
                         foursquare_url: brewlog::infrastructure::foursquare::FOURSQUARE_SEARCH_URL
                             .to_string(),
                         foursquare_api_key: String::new(),
@@ -106,6 +107,7 @@ fn ensure_server_started() -> Result<(String, String), String> {
                         ),
                         timeline_invalidator:
                             brewlog::application::services::TimelineInvalidator::new(timeline_tx),
+                        oidc: None,
                     },
                 );
 

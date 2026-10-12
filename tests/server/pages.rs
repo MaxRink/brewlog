@@ -2,7 +2,7 @@ use reqwest::redirect::Policy;
 
 use crate::helpers::{
     assert_full_page, create_default_bag, create_default_brew, create_default_roast,
-    create_default_roaster, create_session, spawn_app, spawn_app_with_auth,
+    create_default_roaster, create_session, spawn_app, spawn_app_oidc_only, spawn_app_with_auth,
 };
 
 #[tokio::test]
@@ -68,6 +68,18 @@ async fn homepage_shows_stats_counts() {
     // Stats section should show counts
     assert!(body.contains(">2<"), "Should show 2 roasters in stats");
     assert!(body.contains(">1<"), "Should show 1 roast in stats");
+}
+
+#[tokio::test]
+async fn oidc_only_mode_hides_registration_page() {
+    let app = spawn_app_oidc_only().await;
+    let client = reqwest::Client::new();
+    let response = client
+        .get(app.page_url("/register/test-token"))
+        .send()
+        .await
+        .expect("Failed to execute request");
+    assert_eq!(response.status(), 404);
 }
 
 #[tokio::test]

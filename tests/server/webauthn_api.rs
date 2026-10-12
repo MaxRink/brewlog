@@ -1,7 +1,33 @@
 use reqwest::{Client, StatusCode};
 use serde_json::json;
 
-use crate::helpers::spawn_app_with_auth;
+use crate::helpers::{spawn_app_oidc_only, spawn_app_with_auth};
+
+#[tokio::test]
+async fn oidc_only_hides_registration_api() {
+    let app = spawn_app_oidc_only().await;
+    let client = Client::new();
+
+    let start = client
+        .post(app.webauthn_url("/register/start"))
+        .json(&json!({ "token": "test", "display_name": "Alice" }))
+        .send()
+        .await
+        .expect("Failed to send registration start request");
+    assert_eq!(start.status(), StatusCode::NOT_FOUND);
+
+    let finish = client
+        .post(app.webauthn_url("/register/finish"))
+        .json(&json!({
+            "challenge_id": "unused",
+            "passkey_name": "unused",
+            "credential": {}
+        }))
+        .send()
+        .await
+        .expect("Failed to send registration finish request");
+    assert_eq!(finish.status(), StatusCode::NOT_FOUND);
+}
 
 #[tokio::test]
 async fn register_start_with_missing_token_returns_400() {
