@@ -258,6 +258,12 @@ pub(crate) async fn nearby_cafes(
     if q.is_empty() || q.len() < 2 {
         return Err(AppError::validation("q must be at least 2 characters").into());
     }
+    if state.foursquare_api_key.is_empty() {
+        return Err(AppError::validation(
+            "Nearby cafe search is disabled: BREWLOG_FOURSQUARE_API_KEY is not configured",
+        )
+        .into());
+    }
 
     let location = if let Some(near) = &query.near {
         let near = near.trim();

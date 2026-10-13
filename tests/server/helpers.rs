@@ -91,6 +91,7 @@ fn test_state_config() -> AppStateConfig {
         },
         stats_invalidator: brewlog::application::services::StatsInvalidator::new(stats_tx),
         timeline_invalidator: brewlog::application::services::TimelineInvalidator::new(timeline_tx),
+        oidc: None,
     }
 }
 
@@ -178,6 +179,7 @@ pub async fn spawn_app_with_timeline_sync() -> TestApp {
         },
         stats_invalidator: brewlog::application::services::StatsInvalidator::new(stats_tx),
         timeline_invalidator: brewlog::application::services::TimelineInvalidator::new(timeline_tx),
+        oidc: None,
     };
 
     let state = AppState::from_database(&database, config);
@@ -223,6 +225,22 @@ pub async fn spawn_app_with_foursquare_mock() -> TestApp {
     )
     .await;
 
+    add_auth_to_app(app).await
+}
+
+pub async fn spawn_app_without_foursquare() -> TestApp {
+    let database = Database::connect("sqlite::memory:")
+        .await
+        .expect("Failed to connect to in-memory database");
+    let app = spawn_app_inner(
+        database,
+        AppStateConfig {
+            foursquare_api_key: String::new(),
+            ..test_state_config()
+        },
+        None,
+    )
+    .await;
     add_auth_to_app(app).await
 }
 
