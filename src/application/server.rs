@@ -25,12 +25,26 @@ pub struct ServerConfig {
     pub rp_id: String,
     pub rp_origin: String,
     pub insecure_cookies: bool,
+    pub oidc_only: bool,
     pub inference_provider: crate::infrastructure::ai::InferenceProvider,
     pub foursquare_api_key: String,
     pub oidc: Option<OidcConfig>,
 }
 
+/// OIDC-only mode must have a provider configured before the server starts.
+pub fn validate_oidc_only(oidc_only: bool, oidc_configured: bool) -> anyhow::Result<()> {
+    if oidc_only && !oidc_configured {
+        anyhow::bail!(
+            "BREWLOG_OIDC_ONLY requires BREWLOG_OIDC_ISSUER, BREWLOG_OIDC_CLIENT_ID, and BREWLOG_OIDC_REDIRECT_URL"
+        );
+    }
+
+    Ok(())
+}
+
 pub async fn serve(config: ServerConfig) -> anyhow::Result<()> {
+    validate_oidc_only(config.oidc_only, config.oidc.is_some())?;
+
     let database = Database::connect(&config.database_url)
         .await
         .context("failed to connect to database")?;
@@ -63,6 +77,7 @@ pub async fn serve(config: ServerConfig) -> anyhow::Result<()> {
         AppStateConfig {
             webauthn,
             insecure_cookies: config.insecure_cookies,
+            oidc_only: config.oidc_only,
             foursquare_url: crate::infrastructure::foursquare::FOURSQUARE_SEARCH_URL.to_string(),
             foursquare_api_key: config.foursquare_api_key,
             inference_provider: config.inference_provider,
@@ -105,13 +120,19 @@ pub async fn serve(config: ServerConfig) -> anyhow::Result<()> {
         tracing::warn!(error = %err, "failed to clean up expired sessions on startup");
     }
 
-    // Bootstrap: if no users exist, generate a one-time registration token
-    bootstrap_registration(
-        &state.registration_token_repo,
-        &state.user_repo,
-        &config.rp_origin,
-    )
-    .await?;
+    // OIDC-only deployments provision accounts through the identity provider;
+    // keep the native passkey recovery path for existing accounts but do not
+    // create a public bootstrap registration token.
+    if !config.oidc_only {
+        bootstrap_registration(
+            &state.registration_token_repo,
+            &state.user_repo,
+            &config.rp_origin,
+        )
+        .await?;
+    } else {
+        tracing::info!("OIDC-only mode enabled; native registration bootstrap is disabled");
+    }
 
     let listener = TcpListener::bind(config.bind_address)
         .await
@@ -133,6 +154,23 @@ pub async fn serve(config: ServerConfig) -> anyhow::Result<()> {
     info!("server shutdown complete");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_oidc_only;
+
+    #[test]
+    fn oidc_only_requires_provider_configuration() {
+        let error = validate_oidc_only(true, false).expect_err("missing OIDC must fail");
+        assert!(error.to_string().contains("BREWLOG_OIDC_ONLY"));
+    }
+
+    #[test]
+    fn configured_oidc_only_mode_is_valid() {
+        validate_oidc_only(true, true).expect("configured OIDC-only mode must start");
+        validate_oidc_only(false, false).expect("native-only mode does not need OIDC");
+    }
 }
 
 async fn bootstrap_registration(

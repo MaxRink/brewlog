@@ -36,6 +36,10 @@ pub(crate) async fn register_page(
     State(state): State<AppState>,
     Path(token): Path<String>,
 ) -> Result<Response, StatusCode> {
+    if state.oidc_only {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
     // Validate the token exists and is usable
     let token_hash = hash_token(&token);
     let reg_token = state
