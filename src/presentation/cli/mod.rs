@@ -132,6 +132,10 @@ pub struct ServeCommand {
     #[arg(long, env = "BREWLOG_INSECURE_COOKIES")]
     pub insecure_cookies: bool,
 
+    /// Disable public passkey registration; OIDC remains the account-provisioning path.
+    #[arg(long, env = "BREWLOG_OIDC_ONLY", default_value_t = false)]
+    pub oidc_only: bool,
+
     #[arg(long, env = "BREWLOG_OPENROUTER_API_KEY")]
     pub openrouter_api_key: Option<String>,
 

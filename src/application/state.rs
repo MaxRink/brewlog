@@ -49,6 +49,7 @@ pub struct PendingOidc {
 pub struct AppStateConfig {
     pub webauthn: Arc<Webauthn>,
     pub insecure_cookies: bool,
+    pub oidc_only: bool,
     pub foursquare_url: String,
     pub foursquare_api_key: String,
     pub inference_provider: crate::infrastructure::ai::InferenceProvider,
@@ -90,6 +91,7 @@ pub struct AppState {
     pub cafe_service: CafeService,
     pub cup_service: CupService,
     pub insecure_cookies: bool,
+    pub oidc_only: bool,
     pub stats_invalidator: StatsInvalidator,
     pub timeline_invalidator: TimelineInvalidator,
     pub image_semaphore: Arc<tokio::sync::Semaphore>,
@@ -182,6 +184,7 @@ impl AppState {
             cafe_service,
             cup_service,
             insecure_cookies: config.insecure_cookies,
+            oidc_only: config.oidc_only,
             stats_invalidator: config.stats_invalidator,
             timeline_invalidator: config.timeline_invalidator,
             image_semaphore: Arc::new(tokio::sync::Semaphore::new(4)),

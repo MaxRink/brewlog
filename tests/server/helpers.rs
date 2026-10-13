@@ -76,12 +76,22 @@ pub async fn spawn_app() -> TestApp {
     spawn_app_inner(database, test_state_config(), None).await
 }
 
+pub async fn spawn_app_oidc_only() -> TestApp {
+    let database = Database::connect("sqlite::memory:")
+        .await
+        .expect("Failed to connect to in-memory database");
+    let mut config = test_state_config();
+    config.oidc_only = true;
+    spawn_app_inner(database, config, None).await
+}
+
 fn test_state_config() -> AppStateConfig {
     let (stats_tx, _stats_rx) = tokio::sync::mpsc::channel(1);
     let (timeline_tx, _timeline_rx) = tokio::sync::mpsc::channel(1);
     AppStateConfig {
         webauthn: test_webauthn(),
         insecure_cookies: true,
+        oidc_only: false,
         foursquare_url: brewlog::infrastructure::foursquare::FOURSQUARE_SEARCH_URL.to_string(),
         foursquare_api_key: String::new(),
         inference_provider: brewlog::infrastructure::ai::InferenceProvider::OpenRouter {
@@ -170,6 +180,7 @@ pub async fn spawn_app_with_timeline_sync() -> TestApp {
     let config = AppStateConfig {
         webauthn: test_webauthn(),
         insecure_cookies: true,
+        oidc_only: false,
         foursquare_url: brewlog::infrastructure::foursquare::FOURSQUARE_SEARCH_URL.to_string(),
         foursquare_api_key: String::new(),
         inference_provider: brewlog::infrastructure::ai::InferenceProvider::OpenRouter {
