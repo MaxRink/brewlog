@@ -35,8 +35,7 @@ pub struct ServerConfig {
 pub fn validate_oidc_only(oidc_only: bool, oidc_configured: bool) -> anyhow::Result<()> {
     if oidc_only && !oidc_configured {
         anyhow::bail!(
-            "BREWLOG_OIDC_ONLY requires BREWLOG_OIDC_ISSUER, BREWLOG_OIDC_CLIENT_ID, "
-                "and BREWLOG_OIDC_REDIRECT_URL"
+            "BREWLOG_OIDC_ONLY requires BREWLOG_OIDC_ISSUER, BREWLOG_OIDC_CLIENT_ID, and BREWLOG_OIDC_REDIRECT_URL"
         );
     }
 
