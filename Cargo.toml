@@ -42,9 +42,16 @@ webauthn-rs = { version = "0.5", features = ["conditional-ui"] }
 webauthn-rs-proto = "0.5"
 kamadak-exif = "0.6.1"
 openidconnect = { version = "4.0.1", default-features = false, features = ["reqwest", "rustls-tls"] }
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
+opentelemetry = { version = "0.27", optional = true }
+opentelemetry-otlp = { version = "0.27", optional = true, features = ["grpc-tonic"] }
+opentelemetry_sdk = { version = "0.27", optional = true, features = ["rt-tokio"] }
+tracing-opentelemetry = { version = "0.28", optional = true }
 
 [features]
 e2e = []
+otlp = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry_sdk", "dep:tracing-opentelemetry"]
 
 [dev-dependencies]
 portpicker = "0.1"

@@ -7,12 +7,13 @@ pub(crate) use app::auth::is_authenticated;
 use askama::Template;
 use axum::extract::DefaultBodyLimit;
 use axum::http::{HeaderValue, StatusCode};
+use axum::middleware::from_fn;
 use axum::response::Html;
 use tower::ServiceBuilder;
 use tower_cookies::CookieManagerLayer;
 use tower_http::compression::CompressionLayer;
 use tower_http::set_header::SetResponseHeaderLayer;
-use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
+use tower_http::trace::{DefaultOnResponse, TraceLayer};
 use tracing::Level;
 use tracing::error;
 
@@ -28,11 +29,16 @@ pub fn app_router(state: AppState) -> axum::Router {
         .merge(app::router())
         .nest("/api/v1", api::router())
         .nest("/api/v1/webauthn", api::webauthn_router())
+        .route(
+            "/metrics",
+            axum::routing::get(crate::observability::metrics),
+        )
         .layer(
             ServiceBuilder::new()
+                .layer(from_fn(crate::observability::http_metrics))
                 .layer(
                     TraceLayer::new_for_http()
-                        .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+                        .make_span_with(crate::observability::request_span)
                         .on_response(DefaultOnResponse::new().level(Level::INFO)),
                 )
                 .layer(CookieManagerLayer::new())

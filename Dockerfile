@@ -30,9 +30,10 @@ RUN mkdir -p /usr/local/bin \
 WORKDIR /app
 COPY . .
 
+ARG CARGO_FEATURES=otlp
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
-    cargo build --release --locked \
+    cargo build --release --locked --features "${CARGO_FEATURES}" \
     && mkdir -p /out \
     && cp target/release/brewlog /out/brewlog
 
@@ -40,7 +41,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # Chisel — minimal Ubuntu rootfs
 # ---------------------------------------------------------------------------
 FROM ubuntu:26.04 AS chisel
-ARG TARGETARCH=amd64
+ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*

@@ -13,6 +13,7 @@ pub mod helpers;
 pub mod images_api;
 pub mod inference_provider_api;
 pub mod nearby_api;
+pub mod observability;
 pub mod pages;
 pub mod roasters_api;
 pub mod roasts_api;
