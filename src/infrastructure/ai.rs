@@ -133,6 +133,9 @@ pub struct Usage {
     pub prompt_tokens: i64,
     pub completion_tokens: i64,
     pub total_tokens: i64,
+    /// Only `OpenRouter` reports cost; other OpenAI-compatible providers
+    /// (e.g. `LiteLLM`) omit it, in which case it is recorded as 0.
+    #[serde(default)]
     pub cost: f64,
 }
 
@@ -478,6 +481,34 @@ mod tests {
         assert_eq!(usage.completion_tokens, 42);
         assert_eq!(usage.total_tokens, 236);
         assert!((usage.cost - 0.0012).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn parse_chat_response_usage_without_cost() {
+        let json = r#"{
+            "id": "chatcmpl-abc123",
+            "model": "gpt-4o",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "{\"name\": \"Square Mile\"}"
+                    },
+                    "finish_reason": "stop"
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 194,
+                "completion_tokens": 42,
+                "total_tokens": 236
+            }
+        }"#;
+
+        let response: ChatResponse = serde_json::from_str(json).unwrap();
+        let usage = response.usage.unwrap();
+        assert_eq!(usage.total_tokens, 236);
+        assert!(usage.cost.abs() < f64::EPSILON);
     }
 
     #[test]
