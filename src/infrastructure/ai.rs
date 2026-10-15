@@ -239,7 +239,10 @@ async fn call_provider(
         && !image.trim().is_empty()
     {
         content_parts.push(ContentPart::ImageUrl {
-            image_url: ImageUrlDetail { url: image.clone() },
+            image_url: ImageUrlDetail {
+                url: image.clone(),
+                detail: "low",
+            },
         });
     }
 
@@ -389,6 +392,8 @@ enum ContentPart {
 #[derive(Debug, Serialize)]
 struct ImageUrlDetail {
     url: String,
+    // Keep local vision requests inside the smallest model context window.
+    detail: &'static str,
 }
 
 #[derive(Debug, Deserialize)]
@@ -600,6 +605,7 @@ mod tests {
                     ContentPart::ImageUrl {
                         image_url: ImageUrlDetail {
                             url: "data:image/jpeg;base64,/9j/4AAQ".to_string(),
+                            detail: "low",
                         },
                     },
                 ],
@@ -613,6 +619,10 @@ mod tests {
         assert_eq!(json["model"], "test-model");
         assert_eq!(json["messages"][0]["content"][0]["type"], "text");
         assert_eq!(json["messages"][0]["content"][1]["type"], "image_url");
+        assert_eq!(
+            json["messages"][0]["content"][1]["image_url"]["detail"],
+            "low"
+        );
         assert_eq!(json["tools"][0]["type"], "openrouter:web_search");
     }
 
