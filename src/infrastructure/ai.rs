@@ -620,6 +620,10 @@ mod tests {
         assert_eq!(json["messages"][0]["content"][0]["type"], "text");
         assert_eq!(json["messages"][0]["content"][1]["type"], "image_url");
         assert_eq!(
+            json["messages"][0]["content"][1]["image_url"]["url"],
+            "data:image/jpeg;base64,/9j/4AAQ"
+        );
+        assert_eq!(
             json["messages"][0]["content"][1]["image_url"]["detail"],
             "low"
         );
