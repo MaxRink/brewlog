@@ -2,22 +2,34 @@ use brewlog::domain::nearby_cafes::NearbyCafeResult;
 use wiremock::matchers::{header, method, path, query_param};
 use wiremock::{Mock, ResponseTemplate};
 
-use crate::helpers::{spawn_app_with_foursquare_mock, spawn_app_without_foursquare};
+use crate::helpers::{spawn_app_with_foursquare_key, spawn_app_with_foursquare_mock};
 
 #[tokio::test]
-async fn nearby_search_reports_optional_feature_disabled_without_key() {
-    let app = spawn_app_without_foursquare().await;
-    let response = reqwest::Client::new()
-        .get(app.api_url("/nearby-cafes"))
-        .bearer_auth(app.auth_token.as_ref().unwrap())
-        .query(&[("lat", "51.5"), ("lng", "-0.1"), ("q", "coffee")])
-        .send()
-        .await
-        .expect("Failed to execute request");
+async fn nearby_search_is_disabled_without_a_key() {
+    for api_key in ["", "   "] {
+        let app = spawn_app_with_foursquare_key(api_key).await;
+        let mock_server = app.mock_server.as_ref().unwrap();
 
-    assert_eq!(response.status(), 400);
-    let body = response.text().await.expect("Failed to read response");
-    assert!(body.contains("Nearby cafe search is disabled"));
+        for datastar in [false, true] {
+            let response = reqwest::Client::new()
+                .get(app.api_url("/nearby-cafes"))
+                .bearer_auth(app.auth_token.as_ref().unwrap())
+                .header("datastar-request", datastar.to_string())
+                .query(&[("near", "London"), ("q", "coffee")])
+                .send()
+                .await
+                .expect("Failed to execute request");
+
+            assert_eq!(response.status(), 400);
+            let body: serde_json::Value = response.json().await.expect("Failed to parse response");
+            assert_eq!(
+                body["message"],
+                "Nearby cafe search is disabled. Set BREWLOG_FOURSQUARE_API_KEY to enable it."
+            );
+        }
+
+        assert!(mock_server.received_requests().await.unwrap().is_empty());
+    }
 }
 
 /// Deliberately unsorted Foursquare results near London (51.5, -0.1).

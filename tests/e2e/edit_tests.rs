@@ -383,7 +383,7 @@ async fn edit_brew_with_closed_bag_keeps_bag_fixed_and_submits() {
         .expect("The closed bag name should be displayed");
     assert!(bag_display.text().await.unwrap().contains("Test Roast"));
 
-    fill_input(&session.driver, "coffee_weight", "18")
+    fill_input(&session.driver, "coffee_weight", "14")
         .await
         .unwrap();
     submit_visible_form(&session.driver).await.unwrap();
@@ -399,7 +399,7 @@ async fn edit_brew_with_closed_bag_keeps_bag_fixed_and_submits() {
         .text()
         .await
         .unwrap();
-    assert!(body_text.contains("18"), "The brew update should be saved");
+    assert!(body_text.contains("14"), "The brew update should be saved");
 
     session.quit().await;
 }
