@@ -20,6 +20,11 @@ fn git_hash() {
 }
 
 fn tailwind() {
+    // The release image may receive a minimal source context without generated CSS.
+    // Ensure the include_str! target directory exists before invoking Tailwind or
+    // writing the safe fallback below.
+    std::fs::create_dir_all("static/css").expect("create static CSS directory");
+
     println!("cargo:rerun-if-changed=static/css/input.css");
     println!("cargo:rerun-if-changed=templates/");
 
