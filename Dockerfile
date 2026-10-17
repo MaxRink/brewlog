@@ -66,6 +66,13 @@ RUN useradd --root /rootfs -u 1000 -U -M -s /bin/false brewlog \
 # Runtime — scratch with chisel rootfs
 # ---------------------------------------------------------------------------
 FROM scratch
+ARG COMMIT=dev
+ARG BUILD_TIME=dev
+ARG APP_VERSION=1.0.0
+LABEL org.opencontainers.image.source="https://github.com/MaxRink/brewlog" \
+    org.opencontainers.image.revision=${COMMIT} \
+    org.opencontainers.image.version=${APP_VERSION} \
+    org.opencontainers.image.created=${BUILD_TIME}
 COPY --from=chisel /rootfs /
 COPY --from=builder /out/brewlog /usr/local/bin/brewlog
 USER 1000:1000
