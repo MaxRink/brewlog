@@ -44,7 +44,7 @@ kamadak-exif = "0.6.1"
 openidconnect = { version = "4.0.1", default-features = false, features = ["reqwest", "rustls-tls"] }
 metrics = "0.24"
 metrics-exporter-prometheus = "0.16"
-opentelemetry = { version = "0.27", optional = true }
+opentelemetry = { version = "0.33", optional = true }
 opentelemetry-otlp = { version = "0.27", optional = true, features = ["grpc-tonic"] }
 opentelemetry_sdk = { version = "0.27", optional = true, features = ["rt-tokio"] }
 tracing-opentelemetry = { version = "0.28", optional = true }
